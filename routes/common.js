@@ -28,7 +28,7 @@ router.post('/flights/filter', async (req, res) => {
   }
 
   try {
-    const data = await db_mongo.collection('vuelos').find(query).toArray();
+    const data = await db_mongo.collection('flights').find(query).toArray();
     res.status(200).json({ data });
   } catch (err) {
     console.error('Error:', err);
@@ -39,9 +39,9 @@ router.post('/flights/filter', async (req, res) => {
 // route to get all flights that have the same origin
 router.get('/flights/o/:origin_country?', async (req, res) => {
     const searchValue = req.params.origin_country || false
-    let data = (searchValue) ? await db_mongo.collection('vuelos').find({
+    let data = (searchValue) ? await db_mongo.collection('flights').find({
         origin: { $regex: `^${searchValue}`, $options: 'i' }
-    }).toArray() : await db_mongo.collection('vuelos').find().toArray()
+    }).toArray() : await db_mongo.collection('flights').find().toArray()
 
     res.status(200).json({"data":data})
 })
