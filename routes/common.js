@@ -1,9 +1,8 @@
 const express = require('express')
-const{ ObjectId } = require('mongodb')
-const app = express()
+const mongoose = require('mongoose');
+const axios = require('axios');
 const db_postgres = require('../db/postgres');
 const db_mongo = require('../db/mongo')
-app.use(express.json())
 const urlFlag='https://restcountries.com/v3.1/alpha/'
 
 const router = express.Router();
@@ -14,11 +13,11 @@ router.post('/flights/filter', async (req, res) => {
   const query = {};
 
   if (origin) {
-    query.origin = { $regex: `^${origin}`, $options: 'i' };
+    query.origin = { $regex: `^${origin}`};
   }
 
   if (destination) {
-    query.destination = { $regex: `^${destination}`, $options: 'i' };
+    query.destination = { $regex: `^${destination}`};
   }
 
   if (min_price !== undefined || max_price !== undefined) {
@@ -38,13 +37,27 @@ router.post('/flights/filter', async (req, res) => {
 
 // route to get all flights that have the same origin
 router.get('/flights/o/:origin_country?', async (req, res) => {
-    const searchValue = req.params.origin_country || false
-    let data = (searchValue) ? await db_mongo.collection('flights').find({
-        origin: { $regex: `^${searchValue}`, $options: 'i' }
-    }).toArray() : await db_mongo.collection('flights').find().toArray()
+  const searchValue = req.params.origin_country;
 
-    res.status(200).json({"data":data})
-})
+  try {
+    const db = mongoose.connection.useDb('aeropuerto');
+    const flightsCollection = db.collection('flights');
+
+    let data;
+    if (searchValue) {
+      data = await flightsCollection.find({
+        origin: { $regex: `^${searchValue}`, $options: 'i' }
+      }).toArray();
+    } else {
+      data = await flightsCollection.find().toArray();
+    }
+
+    res.status(200).json({ data });
+  } catch (err) {
+    console.error('Error en la consulta:', err);
+    res.status(500).json({ error: 'Error en la consulta', details: err.message });
+  }
+});
 
 // route to get the country flag
 router.get('/country/flag/:code', async (req, res) => {

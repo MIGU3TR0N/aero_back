@@ -1,7 +1,8 @@
 const express = require('express')
 const app = express()
 const port = 3000
-const { ObjectId } = require('mongodb')
+const connectMongo = require('./db/mongo');
+connectMongo();
 const common_routes = require('./routes/common')
 const cors = require('cors')
 
