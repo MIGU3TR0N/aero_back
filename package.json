@@ -18,7 +18,9 @@
   "homepage": "https://github.com/MIGU3TR0N/aero_back#readme",
   "description": "",
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "mongoose": "^8.14.2",
     "pg": "^8.15.6"
   }
