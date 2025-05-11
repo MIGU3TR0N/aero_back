@@ -3,23 +3,28 @@ const mongoose = require('mongoose');
 // Definir el esquema
 const flightSchema = new mongoose.Schema({
   origin: {
-    type: String,
-    required: true,  // Aseguramos que siempre debe estar presente
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Country',
+    required: true,
   },
   destination: {
-    type: String,
-    required: true,  // Aseguramos que siempre debe estar presente
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Country',
+    required: true,
   },
   price: {
     type: Number,
-    required: true,  // Aseguramos que siempre debe estar presente
+    required: true,
   },
+  exit_date: {
+    type: Date,
+    required: true,
+  }
 }, {
-  timestamps: true,  // Esto agrega los campos createdAt y updatedAt automáticamente
+  timestamps: true,
 });
 
-// Crear el modelo a partir del esquema
-const Flight = mongoose.model('flights', flightSchema);
 
-// Exportar el modelo
+const Flight = mongoose.model('Flight', flightSchema);
+
 module.exports = Flight;

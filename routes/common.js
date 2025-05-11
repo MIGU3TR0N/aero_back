@@ -1,5 +1,6 @@
 const express = require('express')
 const mongoose = require('mongoose');
+const { ObjectId } = mongoose.Types;
 const axios = require('axios');
 const db_postgres = require('../db/postgres');
 const db_mongo = require('../db/mongo')
@@ -7,6 +8,7 @@ const urlFlag='https://restcountries.com/v3.1/alpha/'
 
 const router = express.Router();
 
+// precio, origen y destino 
 router.post('/flights/filter', async (req, res) => {
   const { origin, destination, min_price, max_price } = req.body;
 
@@ -27,7 +29,9 @@ router.post('/flights/filter', async (req, res) => {
   }
 
   try {
-    const data = await db_mongo.collection('flights').find(query).toArray();
+    const db = mongoose.connection.useDb('airport');
+    const flightsCollection = db.collection('flights');
+    const data = await flightsCollection.find(query).toArray();
     res.status(200).json({ data });
   } catch (err) {
     console.error('Error:', err);
@@ -37,22 +41,33 @@ router.post('/flights/filter', async (req, res) => {
 
 // route to get all flights that have the same origin
 router.get('/flights/o/:origin_country?', async (req, res) => {
-  const searchValue = req.params.origin_country;
+  const countryName = req.params.origin_country;
+  console.log('Buscando país con nombre:', countryName);
 
   try {
-    const db = mongoose.connection.useDb('aeropuerto');
-    const flightsCollection = db.collection('flights');
+    const db = mongoose.connection.useDb('airport');
+    const Country=db.collection('countries')
+    // Buscar el país en la base de datos
+    const country = await Country.findOne({ name: { $regex: `^${countryName}$`, $options: 'i' } });
 
-    let data;
-    if (searchValue) {
-      data = await flightsCollection.find({
-        origin: { $regex: `^${searchValue}`, $options: 'i' }
-      }).toArray();
-    } else {
-      data = await flightsCollection.find().toArray();
+    if (!country) {
+      console.log('País no encontrado');
+      return res.status(404).json({ error: 'País no encontrado' });
     }
 
+    // Obtener el ObjectId del país
+    const countryId = country._id;
+
+    // Buscar los vuelos en la colección `flights` usando el ObjectId
+    
+    const flightsCollection = db.collection('flights');
+
+    const data = await flightsCollection.find({
+      origin: new mongoose.Types.ObjectId(countryId),
+    }).toArray();
+
     res.status(200).json({ data });
+
   } catch (err) {
     console.error('Error en la consulta:', err);
     res.status(500).json({ error: 'Error en la consulta', details: err.message });
