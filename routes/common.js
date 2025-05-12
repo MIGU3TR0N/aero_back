@@ -8,12 +8,69 @@ const urlFlag='https://restcountries.com/v3.1/alpha/'
 
 const router = express.Router();
 
+//envia la coleccion de vuelo
+router.get('/flights', async (req, res) => {
+  try {
+    const db = mongoose.connection.useDb('airport');
+    const flightsCollection = db.collection('flights');
+    const flights = await flightsCollection.find({}).toArray();
+    res.status(200).json({ data: flights });
+  } catch (err) {
+    console.error('Error en la consulta:', err);
+    res.status(500).json({ error: 'Error en la consulta', details: err.message });
+  }
+});
+
+//envia la coleccion de paises
+router.get('/contries', async (req, res) => {
+  try {
+    const db = mongoose.connection.useDb('airport');
+    const countriesCollection = db.collection('countries');
+    const countries = await countriesCollection.find({}).toArray();
+    res.status(200).json({ data: countries });
+  } catch (err) {
+    console.error('Error en la consulta:', err);
+    res.status(500).json({ error: 'Error en la consulta', details: err.message });
+  }
+});
+
+//envia la coleccion de estados filtrando por pais
+router.get('/states/:origin_country?', async (req, res) => {
+  const countryName = req.params.origin_country;
+  console.log('Buscando país con nombre:', countryName);
+
+  try {
+    const db = mongoose.connection.useDb('airport');
+    const Country=db.collection('countries')
+    const country = await Country.findOne({ name: { $regex: `^${countryName}$`, $options: 'i' } });
+    if (!country) {
+      console.log('País no encontrado');
+      return res.status(404).json({ error: 'País no encontrado' });
+    }
+  
+    res.status(200).json({ data: country.states || [] });
+
+  } catch (err) {
+    console.error('Error en la consulta:', err);
+    res.status(500).json({ error: 'Error en la consulta', details: err.message });
+  }
+});
+
+
+
 // precio, origen y destino 
 router.post('/flights/filter', async (req, res) => {
-  const { origin, destination, min_price, max_price } = req.body;
+  //const { origin, destination, min_price, max_price } = req.body;
+  const origin = req.body.origin;
+  const destination = req.body.destination;
+  const min_price = req.body.min_price;
+  const max_price = req.body.max_price;
+  const db = mongoose.connection.useDb('airport');
+  const countriesCollection = db.collection('countries');
+  const flightsCollection = db.collection('flights');
 
   const query = {};
-
+  /*
   if (origin) {
     query.origin = { $regex: `^${origin}`};
   }
@@ -21,12 +78,12 @@ router.post('/flights/filter', async (req, res) => {
   if (destination) {
     query.destination = { $regex: `^${destination}`};
   }
-
+  
   if (min_price !== undefined || max_price !== undefined) {
     query.price = {};
     if (min_price !== undefined) query.price.$gte = parseFloat(min_price);
     if (max_price !== undefined) query.price.$lte = parseFloat(max_price);
-  }
+  }*/
 
   try {
     const db = mongoose.connection.useDb('airport');
@@ -38,6 +95,38 @@ router.post('/flights/filter', async (req, res) => {
     res.status(500).json({ error: 'Fatal error' });
   }
 })
+
+
+router.post('/flight/find', async (req, res) => {
+  
+  const { name } = req.body;
+
+  const { origin, destination, min_price, max_price } = req.body;
+
+  console.log('Buscando país:', name);
+
+  try {
+    const db = mongoose.connection.useDb('airport');
+    const Country = db.collection('countries');
+
+    const country = await Country.findOne({
+      name: { $regex: `^${name}$`, $options: 'i' }
+    });
+
+    if (!country) {
+      return res.status(404).json({ error: 'País no encontrado' });
+    }
+
+    res.status(200).json({ data: country });
+  } catch (err) {
+    console.error('Error al buscar el país:', err);
+    res.status(500).json({ error: 'Error interno', details: err.message });
+  }
+});
+
+
+
+
 
 // route to get all flights that have the same origin
 router.get('/flights/o/:origin_country?', async (req, res) => {
@@ -92,5 +181,7 @@ router.get('/country/flag/:code', async (req, res) => {
     res.status(500).json({ error: 'Error al consultar el país' });
   }
 });
+
+
 
 module.exports = router;
