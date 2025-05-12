@@ -22,7 +22,7 @@ router.get('/flights', async (req, res) => {
 });
 
 //envia la coleccion de paises
-router.get('/contries', async (req, res) => {
+router.get('/countries', async (req, res) => {
   try {
     const db = mongoose.connection.useDb('airport');
     const countriesCollection = db.collection('countries');
