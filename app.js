@@ -16,8 +16,8 @@ app.use(express.json())
 
 app.use(cors())
 app.use('/', common_routes)
-app.use('/admin', admin_routes)
 const verifyToken = require('./middleware/auth')
+app.use('/admin', verifyToken, admin_routes)
 app.use('/user', verifyToken, user_routes)
 app.use(express.json());
 app.listen(port, () => {
