@@ -208,22 +208,50 @@ router.post('/register', async (req, res)=>{
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  const user = await db_mongo.collection('users').findOne({ email });
 
-  if (!user || user.password !== password) {
-    return res.status(401).json({ error: 'Invalid data' });
+  // Primero buscar en MongoDB
+  let user = await db_mongo.collection('users').findOne({ email });
+
+  // Si no está en Mongo, buscar en PostgreSQL
+  if (!user) {
+    try {
+      const result = await pool.query(
+        'SELECT id, email, password, role FROM users WHERE email = $1',
+        [email]
+      );
+      if (result.rows.length > 0) {
+        const pgUser = result.rows[0];
+
+        // Verificamos la contraseña (plana, sin hash aquí — considera usar bcrypt en prod)
+        if (pgUser.password === password) {
+          user = {
+            _id: pgUser.id,
+            role: pgUser.role,
+          };
+        }
+      }
+    } catch (err) {
+      console.error('Error consultando PostgreSQL:', err);
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
   }
 
-  const token = jwt.sign({ userId: user._id }, SECRET, { expiresIn: '2h' });
+  // Si no se encuentra en ninguna de las dos
+  if (!user) {
+    return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
+  }
+
+  // Si se encontró, emitir token
+  const token = jwt.sign({ userId: user._id, role: user.role }, SECRET, { expiresIn: '2h' });
 
   res.cookie('token', token, {
     httpOnly: true,
     secure: false,
     sameSite: 'strict',
-    maxAge: 2 * 60 * 60 * 1000
+    maxAge: 2 * 60 * 60 * 1000,
   });
 
-  res.status(200).json({ message: 'login success' });
+  res.status(200).json({ message: 'Login exitoso' });
 })
 
 module.exports = router;
