@@ -38,9 +38,6 @@ router.post('/suitcases', async (req, res)=>{
         if (!ObjectId.isValid(id)) {
             return res.status(400).json({ error: 'ID de usuario no válido' });
         }
-        if (!ObjectId.isValid(flight)) {
-            return res.status(400).json({ error: 'ID de usuario no válido' });
-        }
         const newSuitcase = {
             ...req.body,
             owner: new ObjectId(userId)
