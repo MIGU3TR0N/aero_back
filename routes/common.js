@@ -192,6 +192,24 @@ router.post('/flights/reservation', async (req, res)=>{
   }
 })
 
+router.post('/suitcases', async (req, res)=>{
+    try{
+        const userId = req.user.userId
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ error: 'ID de usuario no válido' });
+        }
+        const newSuitcase = {
+            ...req.body,
+            owner: new ObjectId(userId)
+        }
+        const result = await db_mongo.collection('suitcases').insertOne(newSuitcase)
+        res.status(200).json(result)
+    }catch (error) {
+        console.log(error)
+        res.status(500).json({"error": error});  
+    }
+})
+
 router.post('/register', async (req, res)=>{
   try{
       const newUser = {
