@@ -130,4 +130,17 @@ router.post('/employees', async (req, res) => {
   }
 });
 
+router.post('/employee/report', async (req, res)=>{
+    try{
+        const newReport = {
+            ...req.body
+        }
+        const result = await db_mongo.collection('reports').insertOne(newReport)
+        res.status(200).json(result)
+    }catch (error) {
+        console.log(error)
+        res.status(500).json({"error": error});  
+    }
+})
+
 module.exports = router;
