@@ -143,4 +143,14 @@ router.post('/employee/report', async (req, res)=>{
     }
 })
 
+router.get('/planes', async (req, res)=>{
+  try{
+      const result = await db_mongo.collection('plane').find()
+      res.status(200).json(result)
+  }catch (error) {
+      console.log(error)
+      res.status(500).json({"error": error});  
+  }
+})
+
 module.exports = router;

@@ -1,5 +1,7 @@
 const express = require('express')
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
 const mongodb = require('mongodb');
 const { ObjectId } = require('mongodb');
 const axios = require('axios');
@@ -272,4 +274,96 @@ router.post('/login', async (req, res) => {
   res.status(200).json({ message: 'Login exitoso' });
 })
 
+router.post('/login_admin', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const users  = await db_mongo.collection('w_users').aggregate([
+      { $match: { email } }, 
+      {
+        $lookup: {
+          from: 'workers',          
+          localField: 'workerId',   
+          foreignField: '_id',      
+          as: 'workerInfo'          
+        }
+      },
+      {
+        $unwind: {
+          path: '$workerInfo',
+          preserveNullAndEmptyArrays: true 
+        }
+      },
+      
+      { $limit: 1 }
+    ]).toArray();
+    const user = users[0];
+    if (!user) {
+      return res.status(401).json({ error: 'El correo o la contraseña no son correctos. Intenta nuevamente.' });
+    }
+    const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
+    if (user.passwordHash !== hashedPassword) {
+      return res.status(401).json({
+        error: 'El correo o la contraseña no son correctos. Intenta nuevamente.',user
+      });
+    }
+
+    // Crear sesión
+    req.session.usuario = {
+      _id: user._id,
+      workerId: user.workerId,
+      role: user.role,
+      email: user.email, // este es el correo de inicio de sesión
+      firstName: user.workerInfo?.firstName,
+      lastName: user.workerInfo?.lastName,
+      birthDate: user.workerInfo?.birthDate,
+      gender: user.workerInfo?.gender,
+      rfc: user.workerInfo?.rfc,
+      personalEmail: user.workerInfo?.contact?.email,
+      phone: user.workerInfo?.contact?.phone
+    };
+    res.json({ message: 'Login exitoso', usuario: req.session.usuario  });
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({"error": error})
+  }
+});
+
+
+router.get('/api/countries', async (req, res) => {
+  try {
+    const result = await db_mongo
+      .collection('countries')
+      .find({}, { projection: { name: 1, iso2: 1, _id: 0 } }) // solo name e iso2, sin _id
+      .sort({ name: 1 }) // ordenar por nombre ascendente
+      .toArray();
+    res.status(200).json(result)
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener países' });
+  }
+});
+
+
+router.get('/api/get/states/:iso2', async (req, res) => {
+  try {
+    const iso2 = req.params.iso2.toUpperCase();
+
+    const country = await db_mongo
+      .collection('countries')
+      .findOne(
+        { iso2: iso2 },
+        { projection: { states: 1, _id: 0 } } // solo states
+      );
+
+    if (!country) {
+      return res.status(404).json({ error: 'País no encontrado' });
+    }
+
+    const states = Array.isArray(country.states) ? country.states : [];
+
+    res.status(200).json(states);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener estados' });
+  }
+});
 module.exports = router;
