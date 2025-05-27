@@ -32,6 +32,51 @@ router.post('/reservation', async (req, res)=>{
     }
 })
 
+router.delete('/reservation/:id', async (req, res) => {
+    try {
+        const ticketId = req.params.id;
+
+        if (!ObjectId.isValid(ticketId)) {
+            return res.status(400).json({ error: 'ID de reserva no válido' });
+        }
+
+        const result = await db_mongo.collection('tickets').deleteOne({ _id: new ObjectId(ticketId) });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: 'Reserva no encontrada' });
+        }
+
+        res.status(200).json({ message: 'Reserva eliminada correctamente' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al eliminar la reserva' });
+    }
+})
+
+router.post('/reservation/update', async (req, res) => {
+    try {
+        const { id, ...updateFields } = req.body;
+
+        if (!id || !ObjectId.isValid(id)) {
+            return res.status(400).json({ error: 'ID de reserva no válido o faltante' });
+        }
+
+        const result = await db_mongo.collection('tickets').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateFields }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'Reserva no encontrada' });
+        }
+
+        res.status(200).json({ message: 'Reserva actualizada correctamente' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al actualizar la reserva' });
+    }
+})
+
 router.post('/suitcases', async (req, res)=>{
     try{
         const userId = req.user.userId
