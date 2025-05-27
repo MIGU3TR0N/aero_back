@@ -50,4 +50,49 @@ router.post('/suitcases', async (req, res)=>{
     }
 })
 
+router.delete('/suitcases/:id', async (req, res) => {
+    try {
+        const suitcaseId = req.params.id;
+
+        if (!ObjectId.isValid(suitcaseId)) {
+            return res.status(400).json({ error: 'ID de maleta no válido' });
+        }
+
+        const result = await db_mongo.collection('suitcases').deleteOne({ _id: new ObjectId(suitcaseId) });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: 'Maleta no encontrada' });
+        }
+
+        res.status(200).json({ message: 'Maleta eliminada correctamente' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al eliminar la maleta' });
+    }
+})
+
+router.post('/suitcases/update', async (req, res) => {
+    try {
+        const { id, ...updateFields } = req.body;
+
+        if (!id || !ObjectId.isValid(id)) {
+            return res.status(400).json({ error: 'ID de maleta no válido o faltante' });
+        }
+
+        const result = await db_mongo.collection('suitcases').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateFields }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'Maleta no encontrada' });
+        }
+
+        res.status(200).json({ message: 'Maleta actualizada correctamente' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al actualizar la maleta' });
+    }
+})
+
 module.exports = router;
