@@ -140,4 +140,59 @@ router.post('/suitcases/update', async (req, res) => {
     }
 })
 
+// PAYPAL LOGIC
+
+// Obtener token de acceso
+async function getAccessToken() {
+  const response = await axios({
+    url: `${process.env.PAYPAL_API}/v1/oauth2/token`,
+    method: "post",
+    auth: {
+      username: process.env.CLIENT_ID,
+      password: process.env.PAYPAL_KEY
+    },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    data: "grant_type=client_credentials"
+  });
+
+  return response.data.access_token;
+}
+
+// Crear orden
+app.post("/create-order", async (req, res) => {
+  const { amount, currency, description } = req.body;
+
+  try {
+    const accessToken = await getAccessToken();
+
+    const response = await axios({
+      url: `${process.env.PAYPAL_API}/v2/checkout/orders`,
+      method: "post",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      data: {
+        intent: "CAPTURE",
+        purchase_units: [
+          {
+            amount: {
+              currency_code: currency || "USD",
+              value: amount
+            },
+            description
+          }
+        ]
+      }
+    });
+
+    res.json({ id: response.data.id }); // Este ID se usa en el frontend para completar el pago
+  } catch (error) {
+    console.error("Error creando orden:", error.response?.data || error.message);
+    res.status(500).send("Error al crear la orden de PayPal");
+  }
+})
+
 module.exports = router;
