@@ -7,6 +7,22 @@ const db_mongo = require('../db/mongo')
 
 const router = express.Router();
 
+// get payments
+router.get("/payments/:id", async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const payments = await db.collection("payments")
+      .find({ user: new ObjectId(userId) })
+      .sort({ created_at: -1 }) // ordena por fecha descendente
+      .toArray();
+
+    res.json({ success: true, count: payments.length, payments });
+  } catch (error) {
+    console.error("Error al recuperar pagos:", error);
+    res.status(500).json({ success: false, message: "Error al recuperar los pagos del usuario." });
+  }
+})
 
 // reservation of flight by the login user
 router.post('/reservation', async (req, res)=>{
