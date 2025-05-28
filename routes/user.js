@@ -162,7 +162,7 @@ async function getAccessToken() {
 
 // Crear orden
 app.post("/create-order", async (req, res) => {
-  const { amount, currency, description } = req.body;
+  const { amount, currency, description, user } = req.body;
 
   try {
     const accessToken = await getAccessToken();
@@ -188,7 +188,19 @@ app.post("/create-order", async (req, res) => {
       }
     });
 
-    res.json({ id: response.data.id }); // Este ID se usa en el frontend para completar el pago
+    const paypalOrderId = response.data.id;
+
+    // Guardar en MongoDB
+    await db.collection("payments").insertOne({
+      user: new ObjectId(user),
+      paypal_order_id: paypalOrderId,
+      amount: parseFloat(amount),
+      currency: currency || "USD",
+      description,
+      created_at: new Date()
+    });
+
+    res.json({ id: paypalOrderId }); // Este ID se usa en el frontend para completar el pago
   } catch (error) {
     console.error("Error creando orden:", error.response?.data || error.message);
     res.status(500).send("Error al crear la orden de PayPal");
