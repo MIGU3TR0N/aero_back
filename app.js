@@ -3,7 +3,8 @@ const cookieParser = require('cookie-parser')
 const cors = require('cors')
 const app = express()
 const port = 3050
-const session = require('express-session');
+const session = require('express-session')
+const nodemailer = require('nodemailer')
 const connectMongo = require('./db/mongo')
 
 require('./db/postgres')

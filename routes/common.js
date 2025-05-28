@@ -7,10 +7,42 @@ const { ObjectId } = require('mongodb');
 const axios = require('axios');
 const db_postgres = require('../db/postgres');
 const db_mongo = require('../db/mongo')
+const nodemailer = require('nodemailer')
 const urlFlag='https://restcountries.com/v3.1/alpha/'
 const SECRET = process.env.SECRET
 
 const router = express.Router();
+
+// send emails
+router.post('/send-email', async (req, res) => {
+  const { to, subject, text } = req.body;
+
+  // Configurar transporte (puede ser Gmail, SMTP, etc.)
+  const transporter = nodemailer.createTransport({
+    host: process.env.SERVICE,
+    port: process.env.MAIL_PORT,
+    secure: false, // debe ser false para usar STARTTLS
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS
+    }
+  });
+
+  const mailOptions = {
+    from: process.env.MAIL_PORT,
+    to,
+    subject,
+    text
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.status(200).send({ message: 'Correo enviado correctamente' });
+  } catch (error) {
+    console.error('Error al enviar correo:', error);
+    res.status(500).send({ error: 'Error al enviar correo' });
+  }
+})
 
 //envia la coleccion de vuelo
 router.get('/flights', async (req, res) => {
