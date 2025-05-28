@@ -161,7 +161,7 @@ async function getAccessToken() {
 }
 
 // Crear orden
-app.post("/create-order", async (req, res) => {
+router.post("/create-order", async (req, res) => {
   const { amount, currency, description, user } = req.body;
 
   try {
@@ -191,7 +191,7 @@ app.post("/create-order", async (req, res) => {
     const paypalOrderId = response.data.id;
 
     // Guardar en MongoDB
-    await db.collection("payments").insertOne({
+    await db_mongo.collection("payments").insertOne({
       user: new ObjectId(user),
       paypal_order_id: paypalOrderId,
       amount: parseFloat(amount),
