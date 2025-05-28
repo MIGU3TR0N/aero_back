@@ -208,4 +208,37 @@ router.post("/create-order", async (req, res) => {
   }
 })
 
+router.post("/refund-payment", async (req, res) => {
+  const { captureId, amount, currency } = req.body;
+
+  try {
+    const accessToken = await getAccessToken();
+
+    const response = await axios({
+      url: `${process.env.PAYPAL_API}/v2/payments/captures/${captureId}/refund`,
+      method: "post",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      data: {
+        amount: {
+          value: amount,
+          currency_code: currency || "USD"
+        }
+      }
+    });
+
+    // Puedes registrar este reembolso en MongoDB si quieres
+    res.json({
+      refund_id: response.data.id,
+      status: response.data.status
+    });
+
+  } catch (error) {
+    console.error("Error al hacer reembolso:", error.response?.data || error.message);
+    res.status(500).send("Error al procesar el reembolso");
+  }
+})
+
 module.exports = router;
