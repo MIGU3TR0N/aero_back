@@ -1470,4 +1470,51 @@ router.post('/logout', (req, res) => {
       res.status(500).json({ error: 'Error del servidor' });
     }
   });
+
+  router.post('/payments/report', async (req, res) => {
+    try {
+      const { type, value } = req.body;
+
+      if (!['month', 'year'].includes(type) || !value) {
+        return res.status(400).json({ error: 'Parámetros inválidos' });
+      }
+
+      let startDate, endDate;
+
+      if (type === 'month') {
+        const [year, month] = value.split('-').map(Number);
+        if (!year || !month || month < 1 || month > 12) {
+          return res.status(400).json({ error: 'Formato de mes inválido. Usa "YYYY-MM"' });
+        }
+
+        startDate = new Date(year, month - 1, 1);
+        endDate = new Date(year, month, 1); // El primer día del mes siguiente
+      } else if (type === 'year') {
+        const year = parseInt(value);
+        if (!year) {
+          return res.status(400).json({ error: 'Año inválido' });
+        }
+
+        startDate = new Date(year, 0, 1);
+        endDate = new Date(year + 1, 0, 1);
+      }
+
+      const payments = await db_mongo.collection('payments').find({
+        created_at: { $gte: startDate, $lt: endDate }
+      }).toArray();
+
+      const total = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      res.status(200).json({
+        count: payments.length,
+        total_amount: total,
+        currency: "USD",
+        range: { from: startDate, to: endDate },
+        payments
+      });
+    } catch (error) {
+      console.error('Error al generar reporte de pagos:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
 module.exports = router;
