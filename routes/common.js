@@ -376,7 +376,12 @@ router.post('/login_admin', async (req, res) => {
       phone: user.workerInfo?.contact?.phone,
       token: token
     };
-    
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 2 * 60 * 60 * 1000,
+    });
     res.json({ message: 'Login exitoso', usuario: req.session.usuario  });
   } catch (error) {
     console.log(error)
