@@ -374,6 +374,15 @@ router.post('/login_admin', async (req, res) => {
       personalEmail: user.workerInfo?.contact?.email,
       phone: user.workerInfo?.contact?.phone
     };
+     // Si se encontró, emitir token
+    const token = jwt.sign({ userId: user._id, role: "admin" }, SECRET, { expiresIn: '2h' });
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 2 * 60 * 60 * 1000,
+    });
     res.json({ message: 'Login exitoso', usuario: req.session.usuario  });
   } catch (error) {
     console.log(error)
