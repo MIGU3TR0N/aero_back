@@ -25,28 +25,65 @@ router.get("/payments/:id", async (req, res) => {
 })
 
 // reservation of flight by the login user
-router.post('/reservation', async (req, res)=>{
-    try{
-        const userId = req.body.user
-        const flight = req.body.flight
-        const section = req.body.section
-        if (!ObjectId.isValid(userId)) {
-            return res.status(400).json({ error: 'ID de usuario no válido' });
-        }
-        if (!ObjectId.isValid(flight)) {
-            return res.status(400).json({ error: 'ID de usuario no válido' });
-        }
-        const newTicket = {
-            ...req.body,
-            user: new ObjectId(userId),
-            flight: new ObjectId(flight)
-        }
-        const result = await db_mongo.collection('tickets').insertOne(newTicket)
-        res.status(200).json(result)
-    }catch (error) {
-        console.log(error)
-        res.status(500).json({"error": error});  
+router.post('/reservation', async (req, res) => {
+  try {
+    const userId = req.body.user;
+    const flight = req.body.flight;
+    const section = req.body.section;
+
+    if (!ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'ID de usuario no válido' });
     }
+
+    if (!ObjectId.isValid(flight)) {
+      return res.status(400).json({ error: 'ID de vuelo no válido' });
+    }
+
+    const flightId = new ObjectId(flight);
+
+    // 1. Obtener vuelo
+    const flightDoc = await db_mongo.collection('flights').findOne({ _id: flightId });
+    if (!flightDoc) {
+      return res.status(404).json({ error: 'Vuelo no encontrado' });
+    }
+
+    // 2. Validar existencia de la sección (campo normal o premium)
+    if (!(section in flightDoc)) {
+      return res.status(400).json({ error: `La sección "${section}" no existe en el vuelo` });
+    }
+
+    // 3. Validar disponibilidad
+    if (flightDoc[section] <= 0) {
+      return res.status(400).json({ error: `No hay asientos disponibles en la sección "${section}"` });
+    }
+
+    // 4. Decrementar el campo `normal` o `premium`
+    const updateResult = await db_mongo.collection('flights').updateOne(
+      { _id: flightId, [section]: { $gt: 0 } },
+      { $inc: { [section]: -1 } }
+    );
+
+    if (updateResult.modifiedCount === 0) {
+      return res.status(409).json({ error: 'No se pudo actualizar el vuelo, puede que ya no haya asientos disponibles' });
+    }
+
+    // 5. Crear ticket
+    const { user, flight: _, ...rest } = req.body;
+    const newTicket = {
+      ...rest,
+      user: new ObjectId(userId),
+      flight: new ObjectId(flightId),
+      section
+    };
+
+    const result = await db_mongo.collection('tickets').insertOne(newTicket);
+
+    res.status(200).json({ message: 'Reserva exitosa', ticketId: result.insertedId });
+
+  } catch (error) {
+    console.error('Error en /reservation:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 })
 
 router.delete('/reservation/:id', async (req, res) => {
