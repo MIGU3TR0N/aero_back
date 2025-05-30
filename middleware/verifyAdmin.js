@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const SECRET = 'tu_clave_secreta'; // usa process.env.SECRET en producción
+const SECRET = process.env.SECRET; // usa process.env.SECRET en producción
 
 module.exports = (req, res, next) => {
   const token = req.cookies.token;

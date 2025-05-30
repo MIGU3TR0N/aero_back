@@ -265,7 +265,7 @@ router.post('/login', async (req, res) => {
   let user = await db_mongo.collection('users').findOne({ email });
 
   // Si no se encuentra
-  if (!user) {
+  if (!user || user.passwordHash !== password) {
     return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
   }
 

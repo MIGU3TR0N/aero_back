@@ -27,9 +27,10 @@ router.get("/payments/:id", async (req, res) => {
 // reservation of flight by the login user
 router.post('/reservation', async (req, res)=>{
     try{
-        const userId = req.user.userId
+        const userId = req.body.user
         const flight = req.body.flight
-        if (!ObjectId.isValid(id)) {
+        const section = req.body.section
+        if (!ObjectId.isValid(userId)) {
             return res.status(400).json({ error: 'ID de usuario no válido' });
         }
         if (!ObjectId.isValid(flight)) {
