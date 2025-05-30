@@ -1517,4 +1517,55 @@ router.post('/logout', (req, res) => {
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   });
+  router.post('/payments/monthly-summary', async (req, res) => {
+    try {
+      const { year } = req.body;
+
+      const parsedYear = parseInt(year);
+      if (!parsedYear || parsedYear < 2000 || parsedYear > 2100) {
+        return res.status(400).json({ error: 'Año inválido. Usa un formato "YYYY" válido.' });
+      }
+
+      const startDate = new Date(parsedYear, 0, 1);
+      const endDate = new Date(parsedYear + 1, 0, 1);
+
+      const result = await db_mongo.collection('payments').aggregate([
+        {
+          $match: {
+            created_at: { $gte: startDate, $lt: endDate }
+          }
+        },
+        {
+          $group: {
+            _id: { month: { $month: "$created_at" } },
+            total_amount: { $sum: "$amount" },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: { "_id.month": 1 }
+        }
+      ]).toArray();
+
+      // Formatear resultado a estructura clara
+      const monthlyReport = Array.from({ length: 12 }, (_, i) => {
+        const found = result.find(r => r._id.month === i + 1);
+        return {
+          month: i + 1,
+          total_amount: found?.total_amount || 0,
+          payment_count: found?.count || 0
+        };
+      });
+
+      res.status(200).json({
+        year: parsedYear,
+        monthly_summary: monthlyReport,
+        currency: "USD"
+      });
+
+    } catch (error) {
+      console.error('Error al generar resumen mensual de pagos:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
 module.exports = router;
