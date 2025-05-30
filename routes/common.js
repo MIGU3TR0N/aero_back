@@ -209,20 +209,65 @@ router.get('/country/flag/:code', async (req, res) => {
 
 // reservation of flight without login
 router.post('/flights/reservation', async (req, res)=>{
-  try{
-      const flight = req.body.flight
-      if (!ObjectId.isValid(flight)) {
-        return res.status(400).json({ error: 'ID de usuario no válido' });
-      }
-      const newTicket = {
-        ...req.body,
-        flight: new ObjectId(flight)
-      }
-      const result = await db_mongo.collection('tickets').insertOne(newTicket)
-      res.status(200).json(result)
-  }catch (error) {
-    console.log(error)
-    res.status(500).json({"error": error})
+  try {
+    const flight = req.body.flight;
+    const section = req.body.section;
+
+    if (!ObjectId.isValid(flight)) {
+      return res.status(400).json({ error: 'ID de vuelo no válido' });
+    }
+
+    const flightId = new ObjectId(flight);
+
+    // 1. Obtener vuelo
+    const flightDoc = await db_mongo.collection('flights').findOne({ _id: flightId });
+    if (!flightDoc) {
+      return res.status(404).json({ error: 'Vuelo no encontrado' });
+    }
+
+    if (!(section in flightDoc)) {
+      return res.status(400).json({ error: `La sección "${section}" no existe en el vuelo` });
+    }
+
+    // 2. Contar cuántos tickets ya existen en esta sección de este vuelo
+    const currentCount = await db_mongo.collection('tickets').countDocuments({
+      flight: flightId,
+      section: section
+    });
+
+    // 3. Verificar que aún hay asientos disponibles
+    if (currentCount >= flightDoc[section]) {
+      return res.status(400).json({ error: `No hay más asientos disponibles en la sección "${section}"` });
+    }
+
+    const newPlace = currentCount + 1;
+
+    // 4. Decrementar el asiento disponible en la sección
+    const updateResult = await db_mongo.collection('flights').updateOne(
+      { _id: flightId, [section]: { $gt: 0 } },
+      { $inc: { [section]: -1 } }
+    );
+
+    if (updateResult.modifiedCount === 0) {
+      return res.status(409).json({ error: 'Error al actualizar asientos, intenta de nuevo' });
+    }
+
+    // 5. Crear ticket con place autogenerado
+    const { user, flight: _, place, ...rest } = req.body;
+    const newTicket = {
+      ...rest,
+      flight: flightId,
+      section,
+      place: newPlace
+    };
+
+    const result = await db_mongo.collection('tickets').insertOne(newTicket);
+
+    res.status(200).json({ message: 'Reserva exitosa', ticketId: result.insertedId, place: newPlace });
+
+  } catch (error) {
+    console.error('Error en /reservation:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 })
 

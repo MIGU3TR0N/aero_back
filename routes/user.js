@@ -47,38 +47,46 @@ router.post('/reservation', async (req, res) => {
       return res.status(404).json({ error: 'Vuelo no encontrado' });
     }
 
-    // 2. Validar existencia de la sección (campo normal o premium)
     if (!(section in flightDoc)) {
       return res.status(400).json({ error: `La sección "${section}" no existe en el vuelo` });
     }
 
-    // 3. Validar disponibilidad
-    if (flightDoc[section] <= 0) {
-      return res.status(400).json({ error: `No hay asientos disponibles en la sección "${section}"` });
+    // 2. Contar cuántos tickets ya existen en esta sección de este vuelo
+    const currentCount = await db_mongo.collection('tickets').countDocuments({
+      flight: flightId,
+      section: section
+    });
+
+    // 3. Verificar que aún hay asientos disponibles
+    if (currentCount >= flightDoc[section]) {
+      return res.status(400).json({ error: `No hay más asientos disponibles en la sección "${section}"` });
     }
 
-    // 4. Decrementar el campo `normal` o `premium`
+    const newPlace = currentCount + 1;
+
+    // 4. Decrementar el asiento disponible en la sección
     const updateResult = await db_mongo.collection('flights').updateOne(
       { _id: flightId, [section]: { $gt: 0 } },
       { $inc: { [section]: -1 } }
     );
 
     if (updateResult.modifiedCount === 0) {
-      return res.status(409).json({ error: 'No se pudo actualizar el vuelo, puede que ya no haya asientos disponibles' });
+      return res.status(409).json({ error: 'Error al actualizar asientos, intenta de nuevo' });
     }
 
-    // 5. Crear ticket
-    const { user, flight: _, ...rest } = req.body;
+    // 5. Crear ticket con place autogenerado
+    const { user, flight: _, place, ...rest } = req.body;
     const newTicket = {
       ...rest,
       user: new ObjectId(userId),
       flight: flightId,
-      section
+      section,
+      place: newPlace
     };
 
     const result = await db_mongo.collection('tickets').insertOne(newTicket);
 
-    res.status(200).json({ message: 'Reserva exitosa', ticketId: result.insertedId });
+    res.status(200).json({ message: 'Reserva exitosa', ticketId: result.insertedId, place: newPlace });
 
   } catch (error) {
     console.error('Error en /reservation:', error);
