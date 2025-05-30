@@ -321,7 +321,7 @@ router.post('/login', async (req, res) => {
   res.cookie('token', token, {
     httpOnly: true,
     secure: false,
-    sameSite: 'strict',
+    sameSite: 'None',
     maxAge: 2 * 60 * 60 * 1000,
   });
 
@@ -379,7 +379,7 @@ router.post('/login_admin', async (req, res) => {
     res.cookie('token', token, {
       httpOnly: true,
       secure: false,
-      sameSite: 'strict',
+      sameSite: 'None',
       maxAge: 2 * 60 * 60 * 1000,
     });
     res.json({ message: 'Login exitoso', usuario: req.session.usuario  });
