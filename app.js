@@ -17,8 +17,16 @@ const user_routes = require('./routes/user')
 const verifyToken = require('./middleware/auth')
 const verifyAdmin = require('./middleware/verifyAdmin')
 
+const allowedOrigins = ['http://localhost:3000', 'http://ec2-54-209-72-131.compute-1.amazonaws.com','http://ec2-54-161-202-2.compute-1.amazonaws.com:3000'];
+
 app.use(cors({
-  origin: 'http://0.0.0.0:3000', // el frontend
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
   credentials: true
 }));
 
