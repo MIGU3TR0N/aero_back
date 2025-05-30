@@ -360,7 +360,7 @@ router.post('/login_admin', async (req, res) => {
         error: 'El correo o la contraseña no son correctos. Intenta nuevamente.',user
       });
     }
-
+    const token = jwt.sign({ userId: user._id, role: "admin" }, SECRET, { expiresIn: '2h' });
     // Crear sesión
     req.session.usuario = {
       _id: user._id,
@@ -373,17 +373,10 @@ router.post('/login_admin', async (req, res) => {
       gender: user.workerInfo?.gender,
       rfc: user.workerInfo?.rfc,
       personalEmail: user.workerInfo?.contact?.email,
-      phone: user.workerInfo?.contact?.phone
+      phone: user.workerInfo?.contact?.phone,
+      token: token
     };
-     // Si se encontró, emitir token
-    const token = jwt.sign({ userId: user._id, role: "admin" }, SECRET, { expiresIn: '2h' });
-
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      maxAge: 2 * 60 * 60 * 1000,
-    });
+    
     res.json({ message: 'Login exitoso', usuario: req.session.usuario  });
   } catch (error) {
     console.log(error)

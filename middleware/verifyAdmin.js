@@ -1,16 +1,16 @@
 const jwt = require('jsonwebtoken');
 require("dotenv").config();
-const SECRET = process.env.SECRET; // usa process.env.SECRET en producción
+const SECRET = process.env.SECRET;
 
 module.exports = (req, res, next) => {
-  const token = req.cookies.token;
+  const sessionUser = req.session.usuario;
 
-  if (!token) {
-    return res.status(401).json({ error: 'Acceso denegado. Token no proporcionado.' });
+  if (!sessionUser || !sessionUser.token) {
+    return res.status(401).json({ error: 'Acceso denegado. Token no presente en sesión.' });
   }
 
   try {
-    const decoded = jwt.verify(token, SECRET);
+    const decoded = jwt.verify(sessionUser.token, SECRET);
 
     if (decoded.role !== 'admin') {
       return res.status(403).json({ error: 'Acceso denegado. Solo administradores.' });
@@ -19,6 +19,6 @@ module.exports = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Token inválido.' });
+    return res.status(401).json({ error: 'Token de sesión inválido o expirado.' });
   }
 };
