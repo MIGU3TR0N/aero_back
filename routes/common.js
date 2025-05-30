@@ -471,7 +471,7 @@ router.post("/create-order", async (req, res) => {
 
     // Guardar en MongoDB
     await db_mongo.collection("payments").insertOne({
-      user: new ObjectId(user),
+      user: user,
       flight: new ObjectId(flight),
       paypal_order_id: paypalOrderId,
       amount: parseFloat(amount),
