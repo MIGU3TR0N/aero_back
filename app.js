@@ -34,7 +34,7 @@ app.use(cookieParser())
 
 // routes
 app.use('/', common_routes)
-app.use('/admin_v2',admin_routes_v2)
+app.use('/admin_v2', verifyAdmin, admin_routes_v2)
 app.use('/admin', verifyAdmin, admin_routes)
 app.use('/user', verifyToken, (req, res, next) => {
   if (req.user.role === 'user' || req.user.role === 'admin') return next()
