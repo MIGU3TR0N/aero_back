@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+require("dotenv").config();
 const SECRET = process.env.SECRET; // usa process.env.SECRET en producción
 
 module.exports = (req, res, next) => {

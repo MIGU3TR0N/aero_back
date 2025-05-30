@@ -7,6 +7,7 @@ const db_mongo = require('../db/mongo')
 const urlFlag='https://restcountries.com/v3.1/alpha/'
 const pool = require('../db/postgres');
 const router = express.Router();
+require("dotenv").config();
 
 router.get('/employees/:id?', async (req, res) => {
   const employeeId = req.params.id;

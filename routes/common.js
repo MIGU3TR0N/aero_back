@@ -1,6 +1,7 @@
 const express = require('express')
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+require("dotenv").config();
 
 const mongodb = require('mongodb');
 const { ObjectId } = require('mongodb');

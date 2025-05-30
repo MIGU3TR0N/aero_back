@@ -4,6 +4,7 @@ const { ObjectId } = require('mongodb');
 const axios = require('axios');
 const db_postgres = require('../db/postgres');
 const db_mongo = require('../db/mongo')
+require("dotenv").config();
 
 const router = express.Router();
 

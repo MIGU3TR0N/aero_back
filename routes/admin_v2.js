@@ -2,6 +2,7 @@ const express = require('express')
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { startOfMonth, subMonths } = require('date-fns');  
+require("dotenv").config();
 
 const mongodb = require('mongodb');
 const { ObjectId } = require('mongodb');
