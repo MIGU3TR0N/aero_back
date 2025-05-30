@@ -72,7 +72,7 @@ router.post('/reservation', async (req, res) => {
     const newTicket = {
       ...rest,
       user: new ObjectId(userId),
-      flight: new ObjectId(flightId),
+      flight: flightId,
       section
     };
 
