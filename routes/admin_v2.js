@@ -1348,5 +1348,126 @@ router.post('/logout', (req, res) => {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
-  
+
+  // valid weight of plane
+  router.post('/add-suitcase', async (req, res) => {
+    const { flightId, planeId, suitcaseId, weight } = req.body;
+
+    if (!flightId || !planeId || !suitcaseId || weight == null) {
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    }
+
+    try {
+      const planeObjectId = new ObjectId(planeId);
+      const flightObjectId = new ObjectId(flightId);
+      const suitcaseObjectId = new ObjectId(suitcaseId);
+
+      // 1. Obtener peso máximo permitido del avión
+      const plane = await db.collection('planes').findOne({ _id: planeObjectId });
+      if (!plane) {
+        return res.status(404).json({ error: 'Avión no encontrado' });
+      }
+
+      const maxWeight = plane.peso_maximo_kg;
+
+      // 2. Sumar pesos existentes para ese vuelo y avión
+      const aggregate = await db.collection('flight_suitcases').aggregate([
+        {
+          $match: {
+            flightId: flightObjectId,
+            planeId: planeObjectId
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalWeight: { $sum: '$weight' }
+          }
+        }
+      ]).toArray();
+
+      const currentTotal = aggregate[0]?.totalWeight || 0;
+      const newTotal = currentTotal + weight;
+
+      // 3. Verificar si excede el peso máximo
+      if (newTotal > maxWeight) {
+        return res.status(400).json({
+          error: 'Peso excedido',
+          detalle: `Peso actual: ${currentTotal}, nuevo: ${weight}, máximo: ${maxWeight}`
+        });
+      }
+
+      // 4. Insertar el nuevo equipaje
+      const result = await db.collection('flight_suitcases').insertOne({
+        flightId: flightObjectId,
+        planeId: planeObjectId,
+        suitcaseId: suitcaseObjectId,
+        weight,
+        timestamp: new Date()
+      });
+
+      res.status(201).json({ message: 'Equipaje registrado', id: result.insertedId });
+
+    } catch (error) {
+      console.error('Error al agregar equipaje:', error);
+      res.status(500).json({ error: 'Error del servidor' });
+    }
+  })
+
+  router.post('/suitcases/update', async (req, res) => {
+    try {
+        const { id, ...updateFields } = req.body;
+
+        if (!id || !ObjectId.isValid(id)) {
+            return res.status(400).json({ error: 'ID de maleta no válido o faltante' });
+        }
+
+        const result = await db_mongo.collection('suitcases').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateFields }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'Maleta no encontrada' });
+        }
+
+        res.status(200).json({ message: 'Maleta actualizada correctamente' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al actualizar la maleta' });
+    }
+  })
+
+  router.post('/checkin', async (req, res) => {
+    const { suitcaseId, passed, status, description } = req.body;
+
+    if (!suitcaseId || typeof passed !== 'boolean' || !status || !description) {
+      return res.status(400).json({ error: 'Faltan campos requeridos o datos inválidos' });
+    }
+
+    try {
+      const suitcaseObjectId = new ObjectId(suitcaseId);
+
+      // Verificar que la maleta exista
+      const suitcaseExists = await db_mongo.collection('suitcases').findOne({ _id: suitcaseObjectId });
+      if (!suitcaseExists) {
+        return res.status(404).json({ error: 'Maleta no encontrada' });
+      }
+
+      // Insertar inspección
+      const result = await db_mongo.collection('checkin').insertOne({
+        suitcaseId: suitcaseObjectId,
+        passed,
+        status,
+        description,
+        inspectedAt: new Date()
+      });
+
+      res.status(201).json({ message: 'Inspección registrada', id: result.insertedId });
+
+    } catch (error) {
+      console.error('Error al registrar inspección:', error);
+      res.status(500).json({ error: 'Error del servidor' });
+    }
+  });
 module.exports = router;

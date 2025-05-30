@@ -7,10 +7,42 @@ const { ObjectId } = require('mongodb');
 const axios = require('axios');
 const db_postgres = require('../db/postgres');
 const db_mongo = require('../db/mongo')
+const nodemailer = require('nodemailer')
 const urlFlag='https://restcountries.com/v3.1/alpha/'
 const SECRET = process.env.SECRET
 
 const router = express.Router();
+
+// send emails
+router.post('/send-email', async (req, res) => {
+  const { to, subject, text } = req.body;
+
+  // Configurar transporte (puede ser Gmail, SMTP, etc.)
+  const transporter = nodemailer.createTransport({
+    host: process.env.SERVICE,
+    port: process.env.MAIL_PORT,
+    secure: false, // debe ser false para usar STARTTLS
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS
+    }
+  });
+
+  const mailOptions = {
+    from: process.env.MAIL_PORT,
+    to,
+    subject,
+    text
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.status(200).send({ message: 'Correo enviado correctamente' });
+  } catch (error) {
+    console.error('Error al enviar correo:', error);
+    res.status(500).send({ error: 'Error al enviar correo' });
+  }
+})
 
 //envia la coleccion de vuelo
 router.get('/flights', async (req, res) => {
@@ -177,20 +209,65 @@ router.get('/country/flag/:code', async (req, res) => {
 
 // reservation of flight without login
 router.post('/flights/reservation', async (req, res)=>{
-  try{
-      const flight = req.body.flight
-      if (!ObjectId.isValid(flight)) {
-        return res.status(400).json({ error: 'ID de usuario no válido' });
-      }
-      const newTicket = {
-        ...req.body,
-        flight: new ObjectId(flight)
-      }
-      const result = await db_mongo.collection('tickets').insertOne(newTicket)
-      res.status(200).json(result)
-  }catch (error) {
-    console.log(error)
-    res.status(500).json({"error": error})
+  try {
+    const flight = req.body.flight;
+    const section = req.body.section;
+
+    if (!ObjectId.isValid(flight)) {
+      return res.status(400).json({ error: 'ID de vuelo no válido' });
+    }
+
+    const flightId = new ObjectId(flight);
+
+    // 1. Obtener vuelo
+    const flightDoc = await db_mongo.collection('flights').findOne({ _id: flightId });
+    if (!flightDoc) {
+      return res.status(404).json({ error: 'Vuelo no encontrado' });
+    }
+
+    if (!(section in flightDoc)) {
+      return res.status(400).json({ error: `La sección "${section}" no existe en el vuelo` });
+    }
+
+    // 2. Contar cuántos tickets ya existen en esta sección de este vuelo
+    const currentCount = await db_mongo.collection('tickets').countDocuments({
+      flight: flightId,
+      section: section
+    });
+
+    // 3. Verificar que aún hay asientos disponibles
+    if (currentCount >= flightDoc[section]) {
+      return res.status(400).json({ error: `No hay más asientos disponibles en la sección "${section}"` });
+    }
+
+    const newPlace = currentCount + 1;
+
+    // 4. Decrementar el asiento disponible en la sección
+    const updateResult = await db_mongo.collection('flights').updateOne(
+      { _id: flightId, [section]: { $gt: 0 } },
+      { $inc: { [section]: -1 } }
+    );
+
+    if (updateResult.modifiedCount === 0) {
+      return res.status(409).json({ error: 'Error al actualizar asientos, intenta de nuevo' });
+    }
+
+    // 5. Crear ticket con place autogenerado
+    const { user, flight: _, place, ...rest } = req.body;
+    const newTicket = {
+      ...rest,
+      flight: flightId,
+      section,
+      place: newPlace
+    };
+
+    const result = await db_mongo.collection('tickets').insertOne(newTicket);
+
+    res.status(200).json({ message: 'Reserva exitosa', ticketId: result.insertedId, place: newPlace });
+
+  } catch (error) {
+    console.error('Error en /reservation:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 })
 
@@ -232,37 +309,13 @@ router.post('/login', async (req, res) => {
   // Primero buscar en MongoDB
   let user = await db_mongo.collection('users').findOne({ email });
 
-  // Si no está en Mongo, buscar en PostgreSQL
-  if (!user) {
-    try {
-      const result = await pool.query(
-        'SELECT id, email, password, role FROM users WHERE email = $1',
-        [email]
-      );
-      if (result.rows.length > 0) {
-        const pgUser = result.rows[0];
-
-        // Verificamos la contraseña (plana, sin hash aquí — considera usar bcrypt en prod)
-        if (pgUser.password === password) {
-          user = {
-            _id: pgUser.id,
-            role: pgUser.role,
-          };
-        }
-      }
-    } catch (err) {
-      console.error('Error consultando PostgreSQL:', err);
-      return res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  }
-
-  // Si no se encuentra en ninguna de las dos
-  if (!user) {
+  // Si no se encuentra
+  if (!user || user.passwordHash !== password) {
     return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
   }
 
   // Si se encontró, emitir token
-  const token = jwt.sign({ userId: user._id, role: user.role }, SECRET, { expiresIn: '2h' });
+  const token = jwt.sign({ userId: user._id, role: "user" }, SECRET, { expiresIn: '2h' });
 
   res.cookie('token', token, {
     httpOnly: true,
@@ -366,4 +419,72 @@ router.get('/api/get/states/:iso2', async (req, res) => {
     res.status(500).json({ error: 'Error al obtener estados' });
   }
 });
+
+// PAYPAL LOGIC
+
+// Obtener token de acceso
+async function getAccessToken() {
+  const response = await axios({
+    url: `${process.env.PAYPAL_API}/v1/oauth2/token`,
+    method: "post",
+    auth: {
+      username: process.env.CLIENT_ID,
+      password: process.env.PAYPAL_KEY
+    },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    data: "grant_type=client_credentials"
+  });
+
+  return response.data.access_token;
+}
+
+// Crear orden
+router.post("/create-order", async (req, res) => {
+  const { amount, currency, description, user, flight } = req.body;
+
+  try {
+    const accessToken = await getAccessToken();
+
+    const response = await axios({
+      url: `${process.env.PAYPAL_API}/v2/checkout/orders`,
+      method: "post",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      data: {
+        intent: "CAPTURE",
+        purchase_units: [
+          {
+            amount: {
+              currency_code: currency || "USD",
+              value: amount
+            },
+            description
+          }
+        ]
+      }
+    });
+    const paypalOrderId = response.data.id;
+
+    // Guardar en MongoDB
+    await db_mongo.collection("payments").insertOne({
+      user: new ObjectId(user),
+      flight: new ObjectId(flight),
+      paypal_order_id: paypalOrderId,
+      amount: parseFloat(amount),
+      currency: currency || "USD",
+      description,
+      created_at: new Date()
+    });
+
+    res.json({ id: paypalOrderId }); // Este ID se usa en el frontend para completar el pago
+  } catch (error) {
+    console.error("Error creando orden:", error.response?.data || error.message);
+    res.status(500).send("Error al crear la orden de PayPal");
+  }
+})
+
 module.exports = router;
