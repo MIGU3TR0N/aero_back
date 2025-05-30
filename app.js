@@ -41,6 +41,6 @@ app.use('/user', verifyToken, (req, res, next) => {
   return res.status(403).json({ error: 'Acceso denegado' })
 }, user_routes)
 app.use(express.json())
-app.listen(port, () => {
+app.listen(port, '0.0.0.0',() => {
     console.log(`Example app listening on port ${port}!`)
 })
