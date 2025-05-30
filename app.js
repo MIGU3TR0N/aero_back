@@ -18,7 +18,7 @@ const verifyToken = require('./middleware/auth')
 const verifyAdmin = require('./middleware/verifyAdmin')
 
 app.use(cors({
-  origin: 'http://localhost:3000', // el frontend
+  origin: 'http://0.0.0.0:3000', // el frontend
   credentials: true
 }));
 
