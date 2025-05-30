@@ -309,9 +309,9 @@ router.post('/login', async (req, res) => {
 
   // Primero buscar en MongoDB
   let user = await db_mongo.collection('users').findOne({ email });
-
+  const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
   // Si no se encuentra
-  if (!user || user.passwordHash !== password) {
+  if (!user || user.passwordHash !== hashedPassword) {
     return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
   }
 
