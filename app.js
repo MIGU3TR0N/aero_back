@@ -17,7 +17,7 @@ const user_routes = require('./routes/user')
 const verifyToken = require('./middleware/auth')
 const verifyAdmin = require('./middleware/verifyAdmin')
 
-const allowedOrigins = ['http://localhost:3000', 'http://ec2-54-209-72-131.compute-1.amazonaws.com','http://ec2-54-161-202-2.compute-1.amazonaws.com:3000'];
+const allowedOrigins = ['http://localhost:3000', 'http://ec2-54-209-72-131.compute-1.amazonaws.com','http://ec2-54-161-202-2.compute-1.amazonaws.com:3000', 'https://admin-port.onrender.com:3000', 'https://admin-port.onrender.com'];
 
 app.use(cors({
   origin: function (origin, callback) {
