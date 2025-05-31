@@ -901,7 +901,7 @@ router.post('/logout', (req, res) => {
         {
           $project: {
             gender: 1,
-            birthDate: { $toDate: "$birthDate" }, // ✅ conversión necesaria
+            birthDate: { $toDate: "$birthDate" }, // conversión necesaria
             workStart: {
               $toDate: { $concat: ["1970-01-01T", "$jobInfo.workStartTime", ":00Z"] }
             },
@@ -1021,7 +1021,7 @@ router.post('/logout', (req, res) => {
       }
 
       
-      // 🛑 Verificar si ya existe una nómina para el mismo mes y año
+      // Verificar si ya existe una nómina para el mismo mes y año
       const existing = await db_mongo.collection('payrolls').findOne({
         'period.start_date': period.start_date,
         'period.end_date': period.end_date
